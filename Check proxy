@@ -1,0 +1,54 @@
+import requests
+import concurrent.futures
+
+PROXY_URL = "https://raw.githubusercontent.com/robloxdu/Anbatocom-/refs/heads/main/proxies.txt"
+TEST_URL = "http://httpbin.org/ip"
+
+# tải list proxy
+def load_proxies():
+    text = requests.get(PROXY_URL, timeout=10).text
+    return list(set([p.strip() for p in text.splitlines() if p.strip()]))
+
+# nhận dạng loại proxy
+def detect_proxy_type(proxy):
+    if "socks5" in proxy.lower():
+        return "socks5"
+    elif "socks4" in proxy.lower():
+        return "socks4"
+    else:
+        return "http"
+
+# check 1 proxy
+def check_proxy(proxy):
+    try:
+        ptype = detect_proxy_type(proxy)
+        proxies = {"http": f"{ptype}://{proxy}", "https": f"{ptype}://{proxy}"}
+        requests.get(TEST_URL, proxies=proxies, timeout=5)
+        return True
+    except:
+        return False
+
+def main():
+    proxies = load_proxies()
+    print(f" Tải về {len(proxies)} proxy")
+
+    alive, dead = 0, 0
+    batch_size = 100
+
+    # check theo batch
+    for i in range(0, len(proxies), batch_size):
+        batch = proxies[i:i+batch_size]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+            results = list(executor.map(check_proxy, batch))
+
+        alive += results.count(True)
+        dead  += results.count(False)
+        print(f"✅ Sống: {alive} | ❌ Die: {dead}")
+
+    # in tổng kết
+    print("\n===== TỔNG KẾT =====")
+    print(f"✅ Hoạt động: {alive}")
+    print(f"❌ Die: {dead}")
+
+if __name__ == "__main__":
+    main()
